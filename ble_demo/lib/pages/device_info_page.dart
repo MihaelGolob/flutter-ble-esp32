@@ -30,7 +30,7 @@ class DeviceInfoPage extends StatelessWidget {
           FloatingActionButton(
             heroTag: null,
             onPressed: () {
-              context.read<BleDeviceProvider>().writeTestCharacteristic();
+              context.read<BleDeviceProvider>().discoverServices();
             },
             shape: const CircleBorder(),
             child: const Text('Services'),

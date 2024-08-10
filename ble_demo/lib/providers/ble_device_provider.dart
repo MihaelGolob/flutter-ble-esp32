@@ -81,18 +81,20 @@ class BleDeviceProvider extends ChangeNotifier {
 
   void discoverServices() async {
     if (connectedDevice == null) return;
+    print('Discovering services for device: ${connectedDevice!.remoteId} - ${connectedDevice!.advName}');
     services = await connectedDevice!.discoverServices();
+    notifyListeners();
   }
 
   void writeTestCharacteristic() async {
     if (services == null || services!.isEmpty) {
-      discoverServices();
       return;
     }
 
     final service = services!.firstWhere((c) => c.uuid.toString() == '00ff');
     final characteristics = service.characteristics;
 
+    print('Writing to characteristic: ${characteristics.first.uuid}');
     final writeChr = characteristics.first;
     await writeChr.write([0x88, 0x99]);
   }
