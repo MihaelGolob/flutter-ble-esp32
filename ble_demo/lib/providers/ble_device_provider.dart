@@ -5,6 +5,7 @@ import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 class BleDeviceProvider extends ChangeNotifier {
   Map<String, BluetoothDevice> bleDevices = {};
   BluetoothDevice? connectedDevice;
+  List<BluetoothService>? services;
 
   void _addDeviceToCache(BluetoothDevice device) {
     if (!bleDevices.containsKey(device.remoteId.toString())) {
@@ -76,5 +77,23 @@ class BleDeviceProvider extends ChangeNotifier {
     device.cancelWhenDisconnected(onConnection, delayed: true, next: true);
 
     await device.connect();
+  }
+
+  void discoverServices() async {
+    if (connectedDevice == null) return;
+    services = await connectedDevice!.discoverServices();
+  }
+
+  void writeTestCharacteristic() async {
+    if (services == null || services!.isEmpty) {
+      discoverServices();
+      return;
+    }
+
+    final service = services!.firstWhere((c) => c.uuid.toString() == '00ff');
+    final characteristics = service.characteristics;
+
+    final writeChr = characteristics.first;
+    await writeChr.write([0x88, 0x99]);
   }
 }

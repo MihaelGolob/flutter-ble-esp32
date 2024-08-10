@@ -1,3 +1,4 @@
+import 'package:ble_demo/pages/device_info_page.dart';
 import 'package:ble_demo/providers/ble_device_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -20,21 +21,11 @@ class _HomePageState extends State<HomePage> {
           ),
           backgroundColor: Theme.of(context).colorScheme.primary,
         ),
-        floatingActionButton: Row(
-          mainAxisAlignment: MainAxisAlignment.end,
-          children: [
-            FloatingActionButton(
-              onPressed: () {},
-              shape: const CircleBorder(),
-              child: const Icon(Icons.arrow_upward_rounded),
-            ),
-            const SizedBox(width: 10),
-            FloatingActionButton(
-              shape: const CircleBorder(),
-              onPressed: () => context.read<BleDeviceProvider>().searchForBleDevices(true),
-              child: const Icon(Icons.bluetooth),
-            ),
-          ],
+        floatingActionButton: FloatingActionButton(
+          heroTag: null,
+          shape: const CircleBorder(),
+          onPressed: () => context.read<BleDeviceProvider>().searchForBleDevices(true),
+          child: const Icon(Icons.bluetooth),
         ),
         body: Column(
           children: [
@@ -47,7 +38,13 @@ class _HomePageState extends State<HomePage> {
                       var device = provider.bleDevices.values.elementAt(index);
                       var name = device.advName;
                       return ListTile(
-                        onTap: () => {},
+                        onTap: () {
+                          if (provider.connectedDevice == device) {
+                            Navigator.push(context, MaterialPageRoute(builder: (context) => const DeviceInfoPage()));
+                          } else {
+                            provider.connectToDevice(device);
+                          }
+                        },
                         title: name.isNotEmpty ? Text(device.advName) : const Text('Unknown device'),
                         subtitle: Text(device.remoteId.toString()),
                         leading: GestureDetector(
