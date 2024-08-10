@@ -1,7 +1,6 @@
-import 'dart:io';
-
+import 'package:ble_demo/providers/ble_device_provider.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_blue_plus/flutter_blue_plus.dart';
+import 'package:provider/provider.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -11,71 +10,6 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  Map<String, ScanResult> bleDevices = {};
-  ScanResult? connectedDevice;
-
-  void _addDeviceToCache(ScanResult device) {
-    if (!bleDevices.containsKey(device.device.remoteId.toString())) {
-      bleDevices[device.device.remoteId.toString()] = device;
-      setState(() {});
-      print('Found device: ${device.device.remoteId} - ${device.advertisementData.advName}');
-    }
-  }
-
-  void _findBLEDevices() async {
-    var bleSupported = await FlutterBluePlus.isSupported;
-    print('BLE supported: $bleSupported');
-
-    if (Platform.isAndroid) {
-      await FlutterBluePlus.turnOn();
-    }
-
-    if (connectedDevice != null) {
-      _addDeviceToCache(connectedDevice!);
-    }
-
-    // Start scanning for BLE devices
-    var onScanResults = FlutterBluePlus.onScanResults.listen((results) {
-      if (results.isEmpty) return;
-
-      for (var result in results) {
-        _addDeviceToCache(result);
-      }
-    }, onError: (e) => print('Error when scanning for devices: $e'));
-
-    FlutterBluePlus.cancelWhenScanComplete(onScanResults);
-    await FlutterBluePlus.adapterState.where((val) => val == BluetoothAdapterState.on).first;
-    await FlutterBluePlus.startScan(timeout: const Duration(seconds: 15));
-    await FlutterBluePlus.isScanning.where((val) => val == false).first;
-  }
-
-  void _connectToDevice(ScanResult device) async {
-    print('Trying to connect to device: ${device.device.remoteId} - ${device.advertisementData.advName}');
-
-    if (connectedDevice == device) {
-      await connectedDevice!.device.disconnect();
-      return;
-    } else if (connectedDevice != null) {
-      await connectedDevice!.device.disconnect();
-    }
-
-    var onConnection = device.device.connectionState.listen((BluetoothConnectionState state) async {
-      if (state == BluetoothConnectionState.connected) {
-        print('Connected to device: ${device.device.remoteId} - ${device.advertisementData.advName}');
-        connectedDevice = device;
-        setState(() {});
-      } else if (state == BluetoothConnectionState.disconnected) {
-        print('Disconnected from device: ${device.device.remoteId} - ${device.advertisementData.advName}');
-        connectedDevice = null;
-        setState(() {});
-      }
-    });
-
-    device.device.cancelWhenDisconnected(onConnection, delayed: true, next: true);
-
-    await device.device.connect();
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -97,40 +31,41 @@ class _HomePageState extends State<HomePage> {
             const SizedBox(width: 10),
             FloatingActionButton(
               shape: const CircleBorder(),
-              onPressed: () {
-                bleDevices.clear();
-                setState(() {});
-                _findBLEDevices();
-              },
+              onPressed: () => context.read<BleDeviceProvider>().searchForBleDevices(true),
               child: const Icon(Icons.bluetooth),
             ),
           ],
         ),
         body: Column(
           children: [
-            Expanded(
-              child: ListView.builder(
-                itemCount: bleDevices.length,
-                itemBuilder: (context, index) {
-                  var device = bleDevices.values.elementAt(index);
-                  var name = device.advertisementData.advName;
-                  return ListTile(
-                    title: name.isNotEmpty ? Text(device.advertisementData.advName) : const Text('Unknown device'),
-                    subtitle: Text(device.device.remoteId.toString()),
-                    leading: GestureDetector(
-                      onTap: () => _connectToDevice(device),
-                      child: Container(
-                        padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(
-                          color: connectedDevice == device ? Colors.green : Colors.blueGrey[200],
-                          borderRadius: BorderRadius.circular(30),
+            Consumer<BleDeviceProvider>(
+              builder: (context, provider, child) {
+                return Expanded(
+                  child: ListView.builder(
+                    itemCount: provider.bleDevices.length,
+                    itemBuilder: (context, index) {
+                      var device = provider.bleDevices.values.elementAt(index);
+                      var name = device.advName;
+                      return ListTile(
+                        onTap: () => {},
+                        title: name.isNotEmpty ? Text(device.advName) : const Text('Unknown device'),
+                        subtitle: Text(device.remoteId.toString()),
+                        leading: GestureDetector(
+                          onTap: () => provider.connectToDevice(device),
+                          child: Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: provider.connectedDevice == device ? Colors.green : Colors.blueGrey[200],
+                              borderRadius: BorderRadius.circular(30),
+                            ),
+                            child: provider.connectedDevice == device ? const Text('Connected') : const Text('Connect'),
+                          ),
                         ),
-                        child: connectedDevice == device ? const Text('Connected') : const Text('Connect'),
-                      ),
-                    ),
-                  );
-                },
-              ),
+                      );
+                    },
+                  ),
+                );
+              },
             ),
           ],
         ));

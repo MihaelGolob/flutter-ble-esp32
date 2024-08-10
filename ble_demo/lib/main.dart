@@ -1,8 +1,15 @@
 import 'package:ble_demo/pages/home_page.dart';
+import 'package:ble_demo/providers/ble_device_provider.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 void main() {
-  runApp(const MyApp());
+  runApp(
+    ChangeNotifierProvider(
+      create: (context) => BleDeviceProvider(),
+      child: const MyApp(),
+    ),
+  );
 }
 
 class MyApp extends StatelessWidget {
