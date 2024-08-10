@@ -14,6 +14,14 @@ class _HomePageState extends State<HomePage> {
   Map<String, ScanResult> bleDevices = {};
   ScanResult? connectedDevice;
 
+  void _addDeviceToCache(ScanResult device) {
+    if (!bleDevices.containsKey(device.device.remoteId.toString())) {
+      bleDevices[device.device.remoteId.toString()] = device;
+      setState(() {});
+      print('Found device: ${device.device.remoteId} - ${device.advertisementData.advName}');
+    }
+  }
+
   void _findBLEDevices() async {
     var bleSupported = await FlutterBluePlus.isSupported;
     print('BLE supported: $bleSupported');
@@ -22,16 +30,16 @@ class _HomePageState extends State<HomePage> {
       await FlutterBluePlus.turnOn();
     }
 
+    if (connectedDevice != null) {
+      _addDeviceToCache(connectedDevice!);
+    }
+
     // Start scanning for BLE devices
     var onScanResults = FlutterBluePlus.onScanResults.listen((results) {
       if (results.isEmpty) return;
 
       for (var result in results) {
-        if (!bleDevices.containsKey(result.device.remoteId.toString())) {
-          bleDevices[result.device.remoteId.toString()] = result;
-          setState(() {});
-          print('Found device: ${result.device.remoteId} - ${result.advertisementData.advName}');
-        }
+        _addDeviceToCache(result);
       }
     }, onError: (e) => print('Error when scanning for devices: $e'));
 
