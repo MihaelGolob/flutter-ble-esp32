@@ -78,14 +78,25 @@ class _HomePageState extends State<HomePage> {
           ),
           backgroundColor: Theme.of(context).colorScheme.primary,
         ),
-        floatingActionButton: FloatingActionButton(
-          shape: const CircleBorder(),
-          onPressed: () {
-            bleDevices.clear();
-            setState(() {});
-            _findBLEDevices();
-          },
-          child: const Icon(Icons.bluetooth),
+        floatingActionButton: Row(
+          mainAxisAlignment: MainAxisAlignment.end,
+          children: [
+            FloatingActionButton(
+              onPressed: () {},
+              shape: const CircleBorder(),
+              child: const Icon(Icons.arrow_upward_rounded),
+            ),
+            const SizedBox(width: 10),
+            FloatingActionButton(
+              shape: const CircleBorder(),
+              onPressed: () {
+                bleDevices.clear();
+                setState(() {});
+                _findBLEDevices();
+              },
+              child: const Icon(Icons.bluetooth),
+            ),
+          ],
         ),
         body: Column(
           children: [
