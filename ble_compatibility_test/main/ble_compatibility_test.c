@@ -34,12 +34,12 @@
 #define EXAMPLE_DEBUG( tag, format, ... )
 #endif
 
-#define EXAMPLE_TAG "Algorthythmo"
+#define EXAMPLE_TAG "ALGORHYTHMO"
 
 #define PROFILE_NUM                 1
 #define PROFILE_APP_IDX             0
 #define ESP_APP_ID                  0x55
-#define SAMPLE_DEVICE_NAME          "Algorthythmo"
+#define SAMPLE_DEVICE_NAME          "Algorhythmo"
 #define SVC_INST_ID                 0
 
 /* The max length of characteristic value. When the gatt client write or prepare write,
