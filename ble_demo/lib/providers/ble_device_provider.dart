@@ -86,6 +86,11 @@ class BleDeviceProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  void ClearServices() {
+    services = null;
+    notifyListeners();
+  }
+
   void writeTestCharacteristic() async {
     if (services == null || services!.isEmpty) {
       return;
@@ -94,8 +99,15 @@ class BleDeviceProvider extends ChangeNotifier {
     final service = services!.firstWhere((c) => c.uuid.toString() == '00ff');
     final characteristics = service.characteristics;
 
-    print('Writing to characteristic: ${characteristics.first.uuid}');
-    final writeChr = characteristics.first;
-    await writeChr.write([0x88, 0x99]);
+    final charToWrite = characteristics.where((c) => c.characteristicUuid.toString() == 'ff04').firstOrNull;
+
+    if (charToWrite == null) {
+      print('Characteristic not found');
+      return;
+    }
+
+    print('Writing to characteristic: ${charToWrite.uuid}');
+    final writeChr = charToWrite;
+    await writeChr.write([0x64]);
   }
 }

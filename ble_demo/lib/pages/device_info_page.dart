@@ -51,12 +51,13 @@ class DeviceInfoPage extends StatelessWidget {
                   : SizedBox(
                       height: 300,
                       child: ListView.builder(
-                        itemCount: provider.services!.length,
+                        itemCount: provider.services![2].characteristics.length,
                         itemBuilder: (context, index) {
-                          var service = provider.services![index];
+                          var service = provider.services![2];
+                          var characteristic = service.characteristics[index];
                           return ListTile(
-                            title: Text(service.uuid.toString()),
-                            subtitle: Text(service.characteristics.length.toString()),
+                            title: Text(characteristic.uuid.toString()),
+                            subtitle: Text(characteristic.remoteId.toString()),
                           );
                         },
                       ),

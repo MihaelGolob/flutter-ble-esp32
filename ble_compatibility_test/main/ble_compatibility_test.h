@@ -14,6 +14,7 @@
 enum
 {
     IDX_SVC,
+
     IDX_CHAR_A,
     IDX_CHAR_VAL_A,
     IDX_CHAR_CFG_A,
@@ -26,6 +27,10 @@ enum
     IDX_CHAR_VAL_C,
     IDX_CHAR_CFG_C,
     IDX_CHAR_CFG_C_2,
+
+    IDX_CHAR_D,
+    IDX_CHAR_VAL_D,
+    IDX_CHAR_CFG_D,
 
     HRS_IDX_NB,
 };

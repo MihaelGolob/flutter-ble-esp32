@@ -40,6 +40,7 @@ class _HomePageState extends State<HomePage> {
                       return ListTile(
                         onTap: () {
                           if (provider.connectedDevice == device) {
+                            context.read<BleDeviceProvider>().ClearServices();
                             Navigator.push(context, MaterialPageRoute(builder: (context) => const DeviceInfoPage()));
                           } else {
                             provider.connectToDevice(device);
