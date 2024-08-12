@@ -1,15 +1,3 @@
-/*
- * SPDX-FileCopyrightText: 2021-2023 Espressif Systems (Shanghai) CO LTD
- *
- * SPDX-License-Identifier: Unlicense OR CC0-1.0
- */
-
-/********************************************************************************
-*
-* This file is for gatt server. It can send adv data, and get connected by client.
-*
-*********************************************************************************/
-
 #include <inttypes.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -26,14 +14,6 @@
 #include "ble_compatibility_test.h"
 #include "esp_gatt_common_api.h"
 
-#define DEBUG_ON  0
-
-#if DEBUG_ON
-#define EXAMPLE_DEBUG ESP_LOGI
-#else
-#define EXAMPLE_DEBUG( tag, format, ... )
-#endif
-
 #define EXAMPLE_TAG "ALGORHYTHMO"
 
 #define PROFILE_NUM                 1
@@ -42,15 +22,8 @@
 #define SAMPLE_DEVICE_NAME          "Algorhythmo"
 #define SVC_INST_ID                 0
 
-/* The max length of characteristic value. When the gatt client write or prepare write,
-*  the data length must be less than GATTS_EXAMPLE_CHAR_VAL_LEN_MAX.
-*/
-#define GATTS_EXAMPLE_CHAR_VAL_LEN_MAX 500
-#define LONG_CHAR_VAL_LEN           500
 #define SHORT_CHAR_VAL_LEN          10
-#define GATTS_NOTIFY_FIRST_PACKET_LEN_MAX 20
 
-#define PREPARE_BUF_MAX_SIZE        1024
 #define CHAR_DECLARATION_SIZE       (sizeof(uint8_t))
 
 #define ADV_CONFIG_FLAG             (1 << 0)
@@ -67,28 +40,6 @@ typedef struct {
 
 static prepare_type_env_t prepare_write_env;
 
-//#define CONFIG_SET_RAW_ADV_DATA
-#ifdef CONFIG_SET_RAW_ADV_DATA
-static uint8_t raw_adv_data[] = {
-        /* flags */
-        0x02, 0x01, 0x06,
-        /* tx power*/
-        0x02, 0x0a, 0xeb,
-        /* service uuid */
-        0x03, 0x03, 0xFF, 0x00,
-        /* device name */
-        0x0E, 0x09, 'B', 'L', 'E', '_', 'C', 'O','M', 'P', '_', 'T','E', 'S', 'T'
-};
-static uint8_t raw_scan_rsp_data[] = {
-        /* flags */
-        0x02, 0x01, 0x06,
-        /* tx power */
-        0x02, 0x0a, 0xeb,
-        /* service uuid */
-        0x03, 0x03, 0xFF,0x00
-};
-
-#else
 static uint8_t service_uuid[16] = {
     /* LSB <--------------------------------------------------------------------------------> MSB */
     //first uuid, 16bit, [12],[13] is the value
@@ -128,7 +79,6 @@ static esp_ble_adv_data_t scan_rsp_data = {
     .p_service_uuid      = service_uuid,
     .flag = (ESP_BLE_ADV_FLAG_GEN_DISC | ESP_BLE_ADV_FLAG_BREDR_NOT_SPT),
 };
-#endif /* CONFIG_SET_RAW_ADV_DATA */
 
 static esp_ble_adv_params_t adv_params = {
     .adv_int_min         = 0x40,
@@ -154,8 +104,7 @@ struct gatts_profile_inst {
     esp_bt_uuid_t descr_uuid;
 };
 
-static void gatts_profile_event_handler(esp_gatts_cb_event_t event,
-					esp_gatt_if_t gatts_if, esp_ble_gatts_cb_param_t *param);
+static void gatts_profile_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_t gatts_if, esp_ble_gatts_cb_param_t *param);
 
 /* One gatt-based profile one app_id and one gatts_if, this array will store the gatts_if returned by ESP_GATTS_REG_EVT */
 static struct gatts_profile_inst heart_rate_profile_tab[PROFILE_NUM] = {
@@ -167,164 +116,32 @@ static struct gatts_profile_inst heart_rate_profile_tab[PROFILE_NUM] = {
 
 /* Service */
 static const uint16_t GATTS_SERVICE_UUID_TEST = 0x00FF;
-static const uint16_t CHAR_1_SHORT_WR = 0xFF01;
-static const uint16_t CHAR_2_LONG_WR = 0xFF02;
-static const uint16_t CHAR_3_SHORT_NOTIFY = 0xFF03;
-static const uint16_t CHAR_4_VOLUME = 0xFF04;
+static const uint16_t CHAR_VOLUME = 0xFF04;
 
 static const uint16_t primary_service_uuid         = ESP_GATT_UUID_PRI_SERVICE;
 static const uint16_t character_declaration_uuid   = ESP_GATT_UUID_CHAR_DECLARE;
-static const uint16_t character_client_config_uuid = ESP_GATT_UUID_CHAR_CLIENT_CONFIG;
 static const uint16_t character_user_description   = ESP_GATT_UUID_CHAR_DESCRIPTION;
-static const uint8_t char_prop_notify              = ESP_GATT_CHAR_PROP_BIT_NOTIFY;
 static const uint8_t char_prop_read_write          = ESP_GATT_CHAR_PROP_BIT_WRITE | ESP_GATT_CHAR_PROP_BIT_READ;
-static const uint8_t char1_name[]  = "Char_1_Short_WR";
-static const uint8_t char2_name[]  = "Char_2_Long_WR";
-static const uint8_t char3_name[]  = "Char_3_Short_Notify";
-static const uint8_t char4_name[]  = "Char_4_Volume";
-static const uint8_t char_ccc[2]   = {0x00, 0x00};
-static const uint8_t char_value[4] = {0x11, 0x22, 0x33, 0x44};
+static const uint8_t char_volume[]  = "Char_Volume";
+static const uint8_t default_char_value[4] = {0x00, 0x00, 0x00, 0x00};
 
 
 /* Full Database Description - Used to add attributes into the database */
-static const esp_gatts_attr_db_t gatt_db[HRS_IDX_NB] =
-{
+static const esp_gatts_attr_db_t gatt_db[HRS_IDX_NB] = {
     // Service Declaration
-    [IDX_SVC]        =
-    {{ESP_GATT_AUTO_RSP}, {ESP_UUID_LEN_16, (uint8_t *)&primary_service_uuid, ESP_GATT_PERM_READ,
-      sizeof(uint16_t), sizeof(GATTS_SERVICE_UUID_TEST), (uint8_t *)&GATTS_SERVICE_UUID_TEST}},
+    [IDX_SVC] = {{ESP_GATT_AUTO_RSP}, {ESP_UUID_LEN_16, (uint8_t *)&primary_service_uuid, ESP_GATT_PERM_READ, sizeof(uint16_t), sizeof(GATTS_SERVICE_UUID_TEST), (uint8_t *)&GATTS_SERVICE_UUID_TEST}},
 
-    /* Characteristic Declaration */
-    [IDX_CHAR_A]     =
-    {{ESP_GATT_AUTO_RSP}, {ESP_UUID_LEN_16, (uint8_t *)&character_declaration_uuid, ESP_GATT_PERM_READ,
-      CHAR_DECLARATION_SIZE, CHAR_DECLARATION_SIZE, (uint8_t *)&char_prop_read_write}},
-
+    /* Volume Characteristic Declaration  ---------------------------- */
+    [IDX_CHAR_VOLUME] = {{ESP_GATT_AUTO_RSP}, {ESP_UUID_LEN_16, (uint8_t *)&character_declaration_uuid, ESP_GATT_PERM_READ, CHAR_DECLARATION_SIZE, CHAR_DECLARATION_SIZE, (uint8_t *)&char_prop_read_write}},
     /* Characteristic Value */
-    [IDX_CHAR_VAL_A] =
-    {{ESP_GATT_AUTO_RSP}, {ESP_UUID_LEN_16, (uint8_t *)&CHAR_1_SHORT_WR, ESP_GATT_PERM_READ | ESP_GATT_PERM_WRITE | ESP_GATT_PERM_READ_ENC_MITM,
-      SHORT_CHAR_VAL_LEN, sizeof(char_value), (uint8_t *)char_value}},
-
+    [IDX_CHAR_VAL_VOLUME] = {{ESP_GATT_AUTO_RSP}, {ESP_UUID_LEN_16, (uint8_t *)&CHAR_VOLUME, ESP_GATT_PERM_READ | ESP_GATT_PERM_WRITE | ESP_GATT_PERM_READ_ENC_MITM, SHORT_CHAR_VAL_LEN, sizeof(default_char_value), (uint8_t *)default_char_value}},
     /* Characteristic User Descriptor */
-    [IDX_CHAR_CFG_A]  =
-    {{ESP_GATT_AUTO_RSP}, {ESP_UUID_LEN_16, (uint8_t *)&character_user_description, ESP_GATT_PERM_READ,
-      sizeof(char1_name), sizeof(char1_name), (uint8_t *)char1_name}},
-
-    /* Characteristic Declaration */
-    [IDX_CHAR_B]      =
-    {{ESP_GATT_AUTO_RSP}, {ESP_UUID_LEN_16, (uint8_t *)&character_declaration_uuid, ESP_GATT_PERM_READ,
-      CHAR_DECLARATION_SIZE, CHAR_DECLARATION_SIZE, (uint8_t *)&char_prop_read_write}},
-
-    /* Characteristic Value */
-    [IDX_CHAR_VAL_B]  =
-    {{ESP_GATT_AUTO_RSP}, {ESP_UUID_LEN_16, (uint8_t *)&CHAR_2_LONG_WR, ESP_GATT_PERM_READ | ESP_GATT_PERM_WRITE,
-      LONG_CHAR_VAL_LEN, sizeof(char_value), (uint8_t *)char_value}},
-
-       /* Characteristic User Descriptor */
-    [IDX_CHAR_CFG_B]  =
-    {{ESP_GATT_AUTO_RSP}, {ESP_UUID_LEN_16, (uint8_t *)&character_user_description, ESP_GATT_PERM_READ,
-      sizeof(char2_name), sizeof(char2_name), (uint8_t *)char2_name}},
-
-   /* Characteristic Declaration */
-    [IDX_CHAR_C]      =
-    {{ESP_GATT_AUTO_RSP}, {ESP_UUID_LEN_16, (uint8_t *)&character_declaration_uuid, ESP_GATT_PERM_READ,
-      CHAR_DECLARATION_SIZE, CHAR_DECLARATION_SIZE, (uint8_t *)&char_prop_notify}},
-
-    /* Characteristic Value */
-    [IDX_CHAR_VAL_C]  =
-    {{ESP_GATT_AUTO_RSP}, {ESP_UUID_LEN_16, (uint8_t *)&CHAR_3_SHORT_NOTIFY, 0,
-      LONG_CHAR_VAL_LEN, sizeof(char_value), (uint8_t *)char_value}},
-
-    /* Characteristic User Descriptor */
-    [IDX_CHAR_CFG_C]  =
-    {{ESP_GATT_AUTO_RSP}, {ESP_UUID_LEN_16, (uint8_t *)&character_user_description, ESP_GATT_PERM_READ,
-      sizeof(char3_name), sizeof(char3_name), (uint8_t *)char3_name}},
-
-    /* Characteristic Client Configuration Descriptor */
-    [IDX_CHAR_CFG_C_2]  =
-    {{ESP_GATT_AUTO_RSP}, {ESP_UUID_LEN_16, (uint8_t *)&character_client_config_uuid, ESP_GATT_PERM_READ | ESP_GATT_PERM_WRITE,
-      sizeof(uint16_t), sizeof(char_ccc), (uint8_t *)char_ccc}},
-
-    /* Volume Characteristic Declaration */
-    [IDX_CHAR_D]     =
-    {{ESP_GATT_AUTO_RSP}, {ESP_UUID_LEN_16, (uint8_t *)&character_declaration_uuid, ESP_GATT_PERM_READ,
-      CHAR_DECLARATION_SIZE, CHAR_DECLARATION_SIZE, (uint8_t *)&char_prop_read_write}},
-
-    /* Characteristic Value */
-    [IDX_CHAR_VAL_D] =
-    {{ESP_GATT_AUTO_RSP}, {ESP_UUID_LEN_16, (uint8_t *)&CHAR_4_VOLUME, ESP_GATT_PERM_READ | ESP_GATT_PERM_WRITE | ESP_GATT_PERM_READ_ENC_MITM,
-      SHORT_CHAR_VAL_LEN, sizeof(char_value), (uint8_t *)char_value}},
-
-    /* Characteristic User Descriptor */
-    [IDX_CHAR_CFG_D]  =
-    {{ESP_GATT_AUTO_RSP}, {ESP_UUID_LEN_16, (uint8_t *)&character_user_description, ESP_GATT_PERM_READ,
-      sizeof(char4_name), sizeof(char4_name), (uint8_t *)char4_name}},
-
+    [IDX_CHAR_CFG_VOLUME] = {{ESP_GATT_AUTO_RSP}, {ESP_UUID_LEN_16, (uint8_t *)&character_user_description, ESP_GATT_PERM_READ, sizeof(char_volume), sizeof(char_volume), (uint8_t *)char_volume}},
 };
-
-static void show_bonded_devices(void)
-{
-    int dev_num = esp_ble_get_bond_device_num();
-    if (dev_num == 0) {
-        ESP_LOGI(EXAMPLE_TAG, "Bonded devices number zero\n");
-        return;
-    }
-
-    esp_ble_bond_dev_t *dev_list = (esp_ble_bond_dev_t *)malloc(sizeof(esp_ble_bond_dev_t) * dev_num);
-    if (!dev_list) {
-        ESP_LOGE(EXAMPLE_TAG, "malloc failed, return\n");
-        return;
-    }
-    esp_ble_get_bond_device_list(&dev_num, dev_list);
-    EXAMPLE_DEBUG(EXAMPLE_TAG, "Bonded devices number : %d\n", dev_num);
-
-    EXAMPLE_DEBUG(EXAMPLE_TAG, "Bonded devices list : %d\n", dev_num);
-    for (int i = 0; i < dev_num; i++) {
-        #if DEBUG_ON
-        esp_log_buffer_hex(EXAMPLE_TAG, (void *)dev_list[i].bd_addr, sizeof(esp_bd_addr_t));
-        #endif
-    }
-
-    free(dev_list);
-}
-
-static void __attribute__((unused)) remove_all_bonded_devices(void)
-{
-    int dev_num = esp_ble_get_bond_device_num();
-    if (dev_num == 0) {
-        ESP_LOGI(EXAMPLE_TAG, "Bonded devices number zero\n");
-        return;
-    }
-
-    esp_ble_bond_dev_t *dev_list = (esp_ble_bond_dev_t *)malloc(sizeof(esp_ble_bond_dev_t) * dev_num);
-    if (!dev_list) {
-        ESP_LOGE(EXAMPLE_TAG, "malloc failed, return\n");
-        return;
-    }
-    esp_ble_get_bond_device_list(&dev_num, dev_list);
-    for (int i = 0; i < dev_num; i++) {
-        esp_ble_remove_bond_device(dev_list[i].bd_addr);
-    }
-
-    free(dev_list);
-}
 
 static void gap_event_handler(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *param)
 {
     switch (event) {
-    #ifdef CONFIG_SET_RAW_ADV_DATA
-        case ESP_GAP_BLE_ADV_DATA_RAW_SET_COMPLETE_EVT:
-            adv_config_done &= (~ADV_CONFIG_FLAG);
-            if (adv_config_done == 0){
-                esp_ble_gap_start_advertising(&adv_params);
-            }
-            break;
-        case ESP_GAP_BLE_SCAN_RSP_DATA_RAW_SET_COMPLETE_EVT:
-            adv_config_done &= (~SCAN_RSP_CONFIG_FLAG);
-            if (adv_config_done == 0){
-                esp_ble_gap_start_advertising(&adv_params);
-            }
-            break;
-    #else
         case ESP_GAP_BLE_ADV_DATA_SET_COMPLETE_EVT:
             adv_config_done &= (~ADV_CONFIG_FLAG);
             if (adv_config_done == 0){
@@ -337,7 +154,6 @@ static void gap_event_handler(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param
                 esp_ble_gap_start_advertising(&adv_params);
             }
             break;
-    #endif
         case ESP_GAP_BLE_ADV_START_COMPLETE_EVT:
             /* advertising start complete event to indicate advertising start successfully or failed */
             if (param->adv_start_cmpl.status != ESP_BT_STATUS_SUCCESS) {
@@ -354,20 +170,6 @@ static void gap_event_handler(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param
                 ESP_LOGI(EXAMPLE_TAG, "Stop adv successfully");
             }
             break;
-        case ESP_GAP_BLE_UPDATE_CONN_PARAMS_EVT:
-            EXAMPLE_DEBUG(EXAMPLE_TAG, "update connection params status = %d, min_int = %d, max_int = %d,conn_int = %d,latency = %d, timeout = %d",
-                  param->update_conn_params.status,
-                  param->update_conn_params.min_int,
-                  param->update_conn_params.max_int,
-                  param->update_conn_params.conn_int,
-                  param->update_conn_params.latency,
-                  param->update_conn_params.timeout);
-            break;
-        case ESP_GAP_BLE_PASSKEY_REQ_EVT:                           /* passkey request event */
-            EXAMPLE_DEBUG(EXAMPLE_TAG, "ESP_GAP_BLE_PASSKEY_REQ_EVT");
-            //esp_ble_passkey_reply(heart_rate_profile_tab[HEART_PROFILE_APP_IDX].remote_bda, true, 0x00);
-            break;
-
         case ESP_GAP_BLE_NC_REQ_EVT:
             /* The app will receive this event when the IO has DisplayYesNO capability and the peer device IO also has DisplayYesNo capability.
             show the passkey number to the user to confirm it with the number displayed by peer device. */
@@ -382,32 +184,13 @@ static void gap_event_handler(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param
             ///show the passkey number to the user to input it in the peer device.
             ESP_LOGI(EXAMPLE_TAG, "The passkey notify number:%06" PRIu32, param->ble_security.key_notif.passkey);
             break;
-        case ESP_GAP_BLE_KEY_EVT:
-            //shows the ble key info share with peer device to the user.
-            EXAMPLE_DEBUG(EXAMPLE_TAG, "key type = %s", esp_key_type_to_str(param->ble_security.ble_key.key_type));
-            break;
         case ESP_GAP_BLE_AUTH_CMPL_EVT: {
-            esp_bd_addr_t bd_addr;
-            memcpy(bd_addr, param->ble_security.auth_cmpl.bd_addr, sizeof(esp_bd_addr_t));
-            EXAMPLE_DEBUG(EXAMPLE_TAG, "remote BD_ADDR: %08x%04x",\
-                    (bd_addr[0] << 24) + (bd_addr[1] << 16) + (bd_addr[2] << 8) + bd_addr[3],
-                    (bd_addr[4] << 8) + bd_addr[5]);
-            EXAMPLE_DEBUG(EXAMPLE_TAG, "address type = %d", param->ble_security.auth_cmpl.addr_type);
             if (param->ble_security.auth_cmpl.success){
                 ESP_LOGI(EXAMPLE_TAG, "(1) ***** pair status = success ***** ");
             }
             else {
                 ESP_LOGI(EXAMPLE_TAG, "***** pair status = fail, reason = 0x%x *****", param->ble_security.auth_cmpl.fail_reason);
             }
-            show_bonded_devices();
-            break;
-        }
-        case ESP_GAP_BLE_REMOVE_BOND_DEV_COMPLETE_EVT: {
-            EXAMPLE_DEBUG(EXAMPLE_TAG, "ESP_GAP_BLE_REMOVE_BOND_DEV_COMPLETE_EVT status = %d", param->remove_bond_dev_cmpl.status);
-            #if DEBUG_ON
-            esp_log_buffer_hex(EXAMPLE_TAG, (void *)param->remove_bond_dev_cmpl.bd_addr, sizeof(esp_bd_addr_t));
-            #endif
-            EXAMPLE_DEBUG(EXAMPLE_TAG, "------------------------------------");
             break;
         }
         default:
@@ -415,101 +198,13 @@ static void gap_event_handler(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param
     }
 }
 
-void example_prepare_write_event_env(esp_gatt_if_t gatts_if, prepare_type_env_t *prepare_write_env, esp_ble_gatts_cb_param_t *param)
-{
-    EXAMPLE_DEBUG(EXAMPLE_TAG, "prepare write, handle = %d, value len = %d", param->write.handle, param->write.len);
-    esp_gatt_status_t status = ESP_GATT_OK;
-    if (param->write.offset > PREPARE_BUF_MAX_SIZE) {
-        status = ESP_GATT_INVALID_OFFSET;
-    } else if ((param->write.offset + param->write.len) > PREPARE_BUF_MAX_SIZE) {
-        status = ESP_GATT_INVALID_ATTR_LEN;
-    }
-
-    if (status == ESP_GATT_OK && prepare_write_env->prepare_buf == NULL) {
-        prepare_write_env->prepare_buf = (uint8_t *)malloc(PREPARE_BUF_MAX_SIZE * sizeof(uint8_t));
-        prepare_write_env->prepare_len = 0;
-        if (prepare_write_env->prepare_buf == NULL) {
-            ESP_LOGE(EXAMPLE_TAG, "%s, Gatt_server prep no mem", __func__);
-            status = ESP_GATT_NO_RESOURCES;
-        }
-    }
-
-    /*send response when param->write.need_rsp is true */
-    if (param->write.need_rsp){
-        esp_gatt_rsp_t *gatt_rsp = (esp_gatt_rsp_t *)malloc(sizeof(esp_gatt_rsp_t));
-        if (gatt_rsp != NULL){
-            gatt_rsp->attr_value.len = param->write.len;
-            gatt_rsp->attr_value.handle = param->write.handle;
-            gatt_rsp->attr_value.offset = param->write.offset;
-            gatt_rsp->attr_value.auth_req = ESP_GATT_AUTH_REQ_NONE;
-            memcpy(gatt_rsp->attr_value.value, param->write.value, param->write.len);
-            esp_err_t response_err = esp_ble_gatts_send_response(gatts_if, param->write.conn_id, param->write.trans_id, status, gatt_rsp);
-            if (response_err != ESP_OK){
-               ESP_LOGE(EXAMPLE_TAG, "Send response error");
-            }
-            free(gatt_rsp);
-        }else{
-            ESP_LOGE(EXAMPLE_TAG, "%s, malloc failed, and no resource to send response", __func__);
-            status = ESP_GATT_NO_RESOURCES;
-        }
-    }
-    if (status != ESP_GATT_OK){
-        return;
-    }
-    memcpy(prepare_write_env->prepare_buf + param->write.offset,
-           param->write.value,
-           param->write.len);
-    prepare_write_env->prepare_len += param->write.len;
-
-}
-
-uint8_t long_write[16] = {0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x99, 0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF};
-
-void example_exec_write_event_env(prepare_type_env_t *prepare_write_env, esp_ble_gatts_cb_param_t *param){
-    if (param->exec_write.exec_write_flag == ESP_GATT_PREP_WRITE_EXEC && prepare_write_env->prepare_buf){
-        if(prepare_write_env->prepare_len == 256) {
-            bool long_write_success = true;
-            for(uint16_t i = 0; i < prepare_write_env->prepare_len; i ++) {
-                if(prepare_write_env->prepare_buf[i] != long_write[i%16]) {
-                    long_write_success = false;
-                    break;
-                }
-            }
-            if(long_write_success) {
-                ESP_LOGI(EXAMPLE_TAG, "(4) ***** long write success ***** ");
-            }
-        }
-    }else{
-        ESP_LOGI(EXAMPLE_TAG,"ESP_GATT_PREP_WRITE_CANCEL");
-    }
-    if (prepare_write_env->prepare_buf) {
-        free(prepare_write_env->prepare_buf);
-        prepare_write_env->prepare_buf = NULL;
-    }
-    prepare_write_env->prepare_len = 0;
-}
-
-static void gatts_profile_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_t gatts_if, esp_ble_gatts_cb_param_t *param)
-{
+static void gatts_profile_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_t gatts_if, esp_ble_gatts_cb_param_t *param) {
     switch (event) {
         case ESP_GATTS_REG_EVT:{
             esp_err_t set_dev_name_ret = esp_ble_gap_set_device_name(SAMPLE_DEVICE_NAME);
             if (set_dev_name_ret){
                 ESP_LOGE(EXAMPLE_TAG, "set device name failed, error code = %x", set_dev_name_ret);
             }
-    #ifdef CONFIG_SET_RAW_ADV_DATA
-            esp_err_t raw_adv_ret = esp_ble_gap_config_adv_data_raw(raw_adv_data, sizeof(raw_adv_data));
-            if (raw_adv_ret){
-                ESP_LOGE(EXAMPLE_TAG, "config raw adv data failed, error code = %x ", raw_adv_ret);
-            }
-            adv_config_done |= ADV_CONFIG_FLAG;
-            esp_err_t raw_scan_ret = esp_ble_gap_config_scan_rsp_data_raw(raw_scan_rsp_data, sizeof(raw_scan_rsp_data));
-            if (raw_scan_ret){
-                ESP_LOGE(EXAMPLE_TAG, "config raw scan rsp data failed, error code = %x", raw_scan_ret);
-            }
-            adv_config_done |= SCAN_RSP_CONFIG_FLAG;
-    #else
-            //config adv data
             esp_err_t ret = esp_ble_gap_config_adv_data(&adv_data);
             if (ret){
                 ESP_LOGE(EXAMPLE_TAG, "config adv data failed, error code = %x", ret);
@@ -521,7 +216,7 @@ static void gatts_profile_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_
                 ESP_LOGE(EXAMPLE_TAG, "config scan response data failed, error code = %x", ret);
             }
             adv_config_done |= SCAN_RSP_CONFIG_FLAG;
-    #endif
+
             esp_err_t create_attr_ret = esp_ble_gatts_create_attr_tab(gatt_db, gatts_if, HRS_IDX_NB, SVC_INST_ID);
             if (create_attr_ret){
                 ESP_LOGE(EXAMPLE_TAG, "create attr table failed, error code = %x", create_attr_ret);
@@ -529,52 +224,15 @@ static void gatts_profile_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_
         }
        	    break;
         case ESP_GATTS_READ_EVT:
-            //ESP_LOGE(EXAMPLE_TAG, "ESP_GATTS_READ_EVT, handle=0x%d, offset=%d", param->read.handle, param->read.offset);
-            if(gatt_db_handle_table[IDX_CHAR_VAL_A] == param->read.handle) {
-                ESP_LOGE(EXAMPLE_TAG, "(2) ***** read char1 ***** ");
-            }
-            if(gatt_db_handle_table[IDX_CHAR_VAL_B] == param->read.handle) {
-                ESP_LOGE(EXAMPLE_TAG, "(5) ***** read char2 ***** ");
-            }
-            if (gatt_db_handle_table[IDX_CHAR_VAL_D] == param->read.handle) {
-                ESP_LOGE(EXAMPLE_TAG, " ***** read volume: %d ***** ", 0);
+            // handle read events from different characteristics
+            if (gatt_db_handle_table[IDX_CHAR_VAL_VOLUME] == param->read.handle) {
+                ESP_LOGI(EXAMPLE_TAG, " ***** read volume: %d ***** ", 0);
             }
        	    break;
         case ESP_GATTS_WRITE_EVT:
             if (!param->write.is_prep){
-                // the data length of gattc write  must be less than GATTS_EXAMPLE_CHAR_VAL_LEN_MAX.
-                if (gatt_db_handle_table[IDX_CHAR_CFG_C_2] == param->write.handle && param->write.len == 2){
-                    uint16_t descr_value = param->write.value[1]<<8 | param->write.value[0];
-                    uint8_t notify_data[2];
-                    notify_data[0] = 0xAA;
-                    notify_data[1] = 0xBB;
-
-                    if (descr_value == 0x0001){
-                        //the size of notify_data[] need less than MTU size
-                        esp_ble_gatts_send_indicate(gatts_if, param->write.conn_id, gatt_db_handle_table[IDX_CHAR_VAL_C],
-                                                sizeof(notify_data), notify_data, false);
-                        ESP_LOGI(EXAMPLE_TAG, "(6) ***** send notify AA BB ***** ");
-                    }else if (descr_value == 0x0002){
-                        //the size of indicate_data[] need less than MTU size
-                        esp_ble_gatts_send_indicate(gatts_if, param->write.conn_id, gatt_db_handle_table[IDX_CHAR_VAL_C],
-                                            sizeof(notify_data), notify_data, true);
-                    }
-                    else if (descr_value == 0x0000){
-                        ESP_LOGI(EXAMPLE_TAG, "notify/indicate disable ");
-                    }else{
-                        ESP_LOGE(EXAMPLE_TAG, "unknown descr value");
-                        esp_log_buffer_hex(EXAMPLE_TAG, param->write.value, param->write.len);
-                    }
-
-                }
-                if(gatt_db_handle_table[IDX_CHAR_VAL_A] == param->write.handle && param->write.len == 2) {
-                    uint8_t write_data[2] = {0x88, 0x99};
-                    if(memcmp(write_data, param->write.value, param->write.len) == 0) {
-                        ESP_LOGI(EXAMPLE_TAG, "(3)***** short write success ***** ");
-                    }
-                }
-
-                if (gatt_db_handle_table[IDX_CHAR_VAL_D] == param->write.handle) {
+                // handle write events from different characteristics
+                if (gatt_db_handle_table[IDX_CHAR_VAL_VOLUME] == param->write.handle) {
                     ESP_LOGI(EXAMPLE_TAG, " ***** write volume: %d ***** ", param->write.value[0]);
                 }
 
@@ -582,24 +240,11 @@ static void gatts_profile_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_
                 if (param->write.need_rsp){
                     esp_ble_gatts_send_response(gatts_if, param->write.conn_id, param->write.trans_id, ESP_GATT_OK, NULL);
                 }
-            }else{
-                /* handle prepare write */
-                example_prepare_write_event_env(gatts_if, &prepare_write_env, param);
             }
       	    break;
         case ESP_GATTS_EXEC_WRITE_EVT:
             // the length of gattc prepare write data must be less than GATTS_EXAMPLE_CHAR_VAL_LEN_MAX.
             ESP_LOGI(EXAMPLE_TAG, "ESP_GATTS_EXEC_WRITE_EVT, Length=%d",  prepare_write_env.prepare_len);
-            example_exec_write_event_env(&prepare_write_env, param);
-            break;
-        case ESP_GATTS_MTU_EVT:
-            EXAMPLE_DEBUG(EXAMPLE_TAG, "ESP_GATTS_MTU_EVT, MTU %d", param->mtu.mtu);
-            break;
-        case ESP_GATTS_CONF_EVT:
-            EXAMPLE_DEBUG(EXAMPLE_TAG, "ESP_GATTS_CONF_EVT, status = %d", param->conf.status);
-            break;
-        case ESP_GATTS_START_EVT:
-            EXAMPLE_DEBUG(EXAMPLE_TAG, "SERVICE_START_EVT, status %d, service_handle %d", param->start.status, param->start.service_handle);
             break;
         case ESP_GATTS_CONNECT_EVT:
             ESP_LOGI(EXAMPLE_TAG, "ESP_GATTS_CONNECT_EVT, conn_id = %d", param->connect.conn_id);
@@ -631,9 +276,7 @@ static void gatts_profile_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_
 }
 
 
-static void gatts_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_t gatts_if, esp_ble_gatts_cb_param_t *param)
-{
-
+static void gatts_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_t gatts_if, esp_ble_gatts_cb_param_t *param) {
     /* If event is register event, store the gatts_if for each profile */
     if (event == ESP_GATTS_REG_EVT) {
         if (param->reg.status == ESP_GATT_OK) {
@@ -658,8 +301,7 @@ static void gatts_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_t gatts_
     } while (0);
 }
 
-void app_main(void)
-{
+void app_main(void) {
     esp_err_t ret;
 
     /* Initialize NVS. */
