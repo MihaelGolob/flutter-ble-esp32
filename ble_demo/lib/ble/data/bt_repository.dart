@@ -5,6 +5,8 @@ abstract class BtRepository {
 
   Future<BtDevice> connectToDevice(String deviceName);
   void disconnectFromDevice();
+  
+  void setVolume(int value);
 }
 
 // exceptions

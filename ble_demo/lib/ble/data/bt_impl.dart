@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:ble_demo/ble/data/bt_repository.dart';
 import 'package:ble_demo/ble/models/bt_device_model.dart';
+import 'package:ble_demo/global/bt_constants.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 
 class BtImpl implements BtRepository {
@@ -56,6 +57,20 @@ class BtImpl implements BtRepository {
     if (connectedDevice != null) {
       connectedDevice!.disconnect();
     }
+  }
+
+  @override
+  void setVolume(int value) async {
+    if (connectedDevice == null) {
+      print('Cannot set volume, no device connected');
+    }
+
+    // todo: rework
+    final services = await connectedDevice!.discoverServices();
+    final algService = services.firstWhere((service) => service.uuid.toString() == BtConstants.serviceUuid);
+    final volumeChar = algService.characteristics.firstWhere((char) => char.uuid.toString() == BtConstants.volumeChar);
+
+    await volumeChar.write([value]);
   }
 
   // P R I V A T E  M E T H O D S

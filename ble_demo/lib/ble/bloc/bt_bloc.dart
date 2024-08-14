@@ -24,4 +24,8 @@ class BtBloc extends Bloc<BtEvent, BtState> {
   }
 
   bool get isConnected => _btRepository.isConnected;
+
+  void setVolume(int value) {
+    _btRepository.setVolume(value);
+  }
 }
