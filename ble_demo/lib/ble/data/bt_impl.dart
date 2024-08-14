@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:ble_demo/ble/data/bt_repository.dart';
@@ -16,6 +17,8 @@ class BtImpl implements BtRepository {
 
   @override
   Future<BtDevice> connectToDevice(String deviceName) async {
+    final connectionCompleter = Completer<void>();
+
     var onScanResults = FlutterBluePlus.onScanResults.listen((results) {
       if (results.isEmpty || connectedDevice != null) {
         return;
@@ -23,18 +26,23 @@ class BtImpl implements BtRepository {
 
       // if found, connect to the first device found
       print('Found device: ${results.first.device.remoteId} - ${results.first.advertisementData.advName}');
-      _connectToDevice(results.first.device);
+      _connectToDevice(results.first.device).then((_) => connectionCompleter.complete());
     }, onError: (e) => throw BtExceptionError(e));
     FlutterBluePlus.cancelWhenScanComplete(onScanResults); // cleanup subscription
 
     // wait for bt to be enabled and permission granted
     await FlutterBluePlus.adapterState.where((val) => val == BluetoothAdapterState.on).first;
+    print('Starting to scan for device: $deviceName');
     await FlutterBluePlus.startScan(
       withNames: [deviceName],
       timeout: const Duration(seconds: 10),
     );
 
-    await FlutterBluePlus.isScanning.where((val) => val == false).first;
+    // wait for connection to be established or timeout
+    await Future.any([
+      connectionCompleter.future,
+      FlutterBluePlus.isScanning.where((val) => val == false).first,
+    ]);
 
     if (connectedDevice == null) {
       throw BtExceptionTimeout();
@@ -68,7 +76,7 @@ class BtImpl implements BtRepository {
     return await FlutterBluePlus.isSupported;
   }
 
-  void _connectToDevice(BluetoothDevice device) async {
+  Future<void> _connectToDevice(BluetoothDevice device) async {
     print('Trying to connect: ${device.remoteId} - ${device.advName}');
 
     if (connectedDevice == device) {
