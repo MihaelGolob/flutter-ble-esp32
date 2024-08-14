@@ -1,5 +1,5 @@
 import 'package:ble_demo/ble/bloc/bt_bloc.dart';
-import 'package:ble_demo/ble_writer/bt_constants.dart';
+import 'package:ble_demo/global/bt_constants.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:provider/provider.dart';
