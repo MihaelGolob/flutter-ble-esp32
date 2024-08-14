@@ -31,6 +31,26 @@ class BleDeviceProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  void findAndConnectToDevice(String deviceName) async {
+    var bleSupported = await FlutterBluePlus.isSupported;
+    print('BLE supported: $bleSupported');
+
+    if (Platform.isAndroid) {
+      await FlutterBluePlus.turnOn();
+    }
+
+    var onScanResults = FlutterBluePlus.onScanResults.listen((results) {
+      if (results.isEmpty) return;
+
+      for (var result in results) {
+        if (result.device.advName == deviceName) {
+          connectToDevice(result.device);
+          break;
+        }
+      }
+    }, onError: (e) => print('Error when scanning for devices: $e'));
+  }
+
   void searchForBleDevices(bool clear) async {
     if (clear) {
       _clearDevices();
