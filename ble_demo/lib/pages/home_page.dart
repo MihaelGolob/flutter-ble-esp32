@@ -1,5 +1,7 @@
 import 'package:ble_demo/ble/bloc/bt_bloc.dart';
 import 'package:ble_demo/global/bt_constants.dart';
+import 'package:ble_demo/pages/connected_page.dart';
+import 'package:ble_demo/widgets/button.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:provider/provider.dart';
@@ -23,11 +25,11 @@ class _HomePageState extends State<HomePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(
+        title: const Text(
           'Algorhythmo',
-          style: TextStyle(color: Theme.of(context).colorScheme.surface),
+          style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
         ),
-        backgroundColor: Theme.of(context).colorScheme.primary,
+        backgroundColor: Colors.blueGrey,
         actions: [
           BlocBuilder(
             bloc: context.read<BtBloc>(),
@@ -45,10 +47,11 @@ class _HomePageState extends State<HomePage> {
         builder: (context, state) {
           if (state is BtInitial) {
             return Center(
-                child: ElevatedButton(
-              onPressed: () => context.read<BtBloc>().add(BtFindAndConnectToDevice(deviceName: BtConstants.unitBleName)),
-              child: const Text('Connect'),
-            ));
+              child: Button(
+                onTap: () => context.read<BtBloc>().add(BtFindAndConnectToDevice(deviceName: BtConstants.unitBleName)),
+                text: 'Connect',
+              ),
+            );
           }
 
           if (state is BtScanning) {
@@ -59,7 +62,7 @@ class _HomePageState extends State<HomePage> {
             return Center(child: Text(state.message));
           }
 
-          return Center(child: Text('Connected to device: ${(state as BtConnected).device.name}'));
+          return const ConnectedPage();
         },
       ),
     );
