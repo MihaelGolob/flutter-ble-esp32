@@ -22,4 +22,6 @@ class BtBloc extends Bloc<BtEvent, BtState> {
       emit(BtError(e.toString()));
     }
   }
+
+  bool get isConnected => _btRepository.isConnected;
 }

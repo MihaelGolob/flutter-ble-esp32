@@ -27,8 +27,18 @@ class _HomePageState extends State<HomePage> {
           'Algorhythmo',
           style: TextStyle(color: Theme.of(context).colorScheme.surface),
         ),
-        centerTitle: true,
         backgroundColor: Theme.of(context).colorScheme.primary,
+        actions: [
+          BlocBuilder(
+            bloc: context.read<BtBloc>(),
+            builder: (context, state) {
+              return Padding(
+                padding: const EdgeInsets.all(10),
+                child: Icon(Icons.circle, color: context.read<BtBloc>().isConnected ? Colors.green : Colors.red),
+              );
+            },
+          ),
+        ],
       ),
       body: BlocBuilder(
         bloc: context.read<BtBloc>(),
@@ -49,7 +59,7 @@ class _HomePageState extends State<HomePage> {
             return Center(child: Text(state.message));
           }
 
-          return const Center(child: Text('Connected to device'));
+          return Center(child: Text('Connected to device: ${(state as BtConnected).device.name}'));
         },
       ),
     );

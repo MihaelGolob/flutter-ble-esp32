@@ -12,6 +12,9 @@ class BtImpl implements BtRepository {
   }
 
   @override
+  bool get isConnected => connectedDevice != null;
+
+  @override
   Future<BtDevice> connectToDevice(String deviceName) async {
     var onScanResults = FlutterBluePlus.onScanResults.listen((results) {
       if (results.isEmpty || connectedDevice != null) {
