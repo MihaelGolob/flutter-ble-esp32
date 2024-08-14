@@ -1,31 +1,42 @@
+import 'package:ble_demo/ble/bloc/bt_bloc.dart';
+import 'package:ble_demo/ble/data/bt_impl.dart';
+import 'package:ble_demo/ble/data/bt_repository.dart';
 import 'package:ble_demo/pages/home_page.dart';
-import 'package:ble_demo/providers/ble_device_provider.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 
 void main() {
-  runApp(
-    ChangeNotifierProvider(
-      create: (context) => BleDeviceProvider(),
-      child: const MyApp(),
-    ),
-  );
+  final BtRepository btRepository = BtImpl();
+
+  runApp(MyApp(
+    btRepository: btRepository,
+  ));
 }
 
 class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+  final BtRepository btRepository;
+
+  const MyApp({super.key, required this.btRepository});
 
   // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'BLE demo',
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.blueGrey),
-        useMaterial3: true,
+    return MultiRepositoryProvider(
+      providers: [
+        RepositoryProvider<BtRepository>(create: (context) => btRepository),
+      ],
+      child: MultiBlocProvider(
+        providers: [BlocProvider<BtBloc>(create: (context) => BtBloc(context.read<BtRepository>()))],
+        child: MaterialApp(
+          title: 'BLE demo',
+          debugShowCheckedModeBanner: false,
+          theme: ThemeData(
+            colorScheme: ColorScheme.fromSeed(seedColor: Colors.blueGrey),
+            useMaterial3: true,
+          ),
+          home: const HomePage(),
+        ),
       ),
-      home: const HomePage(),
     );
   }
 }
