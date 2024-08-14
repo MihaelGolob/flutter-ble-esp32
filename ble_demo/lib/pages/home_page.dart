@@ -1,6 +1,7 @@
-import 'package:ble_demo/ble_writer/ble_writer.dart';
-import 'package:ble_demo/providers/ble_device_provider.dart';
+import 'package:ble_demo/ble/bloc/bt_bloc.dart';
+import 'package:ble_demo/ble_writer/bt_constants.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:provider/provider.dart';
 
 class HomePage extends StatefulWidget {
@@ -16,25 +17,41 @@ class _HomePageState extends State<HomePage> {
   @override
   void initState() {
     super.initState();
-
-    context.read<BleDeviceProvider>().findAndConnectToDevice(BleWriter.unitBleName);
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-        appBar: AppBar(
-          title: Text(
-            'Algorhythmo',
-            style: TextStyle(color: Theme.of(context).colorScheme.surface),
-          ),
-          centerTitle: true,
-          backgroundColor: Theme.of(context).colorScheme.primary,
+      appBar: AppBar(
+        title: Text(
+          'Algorhythmo',
+          style: TextStyle(color: Theme.of(context).colorScheme.surface),
         ),
-        body: Consumer<BleDeviceProvider>(
-          builder: (context, provider, child) {
-            return isScanning ? const Center(child: CircularProgressIndicator()) : SizedBox();
-          },
-        ));
+        centerTitle: true,
+        backgroundColor: Theme.of(context).colorScheme.primary,
+      ),
+      body: BlocBuilder(
+        bloc: context.read<BtBloc>(),
+        builder: (context, state) {
+          if (state is BtInitial) {
+            return Center(
+                child: ElevatedButton(
+              onPressed: () => context.read<BtBloc>().add(BtFindAndConnectToDevice(deviceName: BtConstants.unitBleName)),
+              child: const Text('Connect'),
+            ));
+          }
+
+          if (state is BtScanning) {
+            return const Center(child: CircularProgressIndicator());
+          }
+
+          if (state is BtError) {
+            return Center(child: Text(state.message));
+          }
+
+          return const Center(child: Text('Connected to device'));
+        },
+      ),
+    );
   }
 }

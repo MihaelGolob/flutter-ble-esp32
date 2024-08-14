@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'package:ble_demo/ble_writer/ble_writer.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 
@@ -29,26 +28,6 @@ class BleDeviceProvider extends ChangeNotifier {
   void _clearDevices() {
     bleDevices.clear();
     notifyListeners();
-  }
-
-  void findAndConnectToDevice(String deviceName) async {
-    var bleSupported = await FlutterBluePlus.isSupported;
-    print('BLE supported: $bleSupported');
-
-    if (Platform.isAndroid) {
-      await FlutterBluePlus.turnOn();
-    }
-
-    var onScanResults = FlutterBluePlus.onScanResults.listen((results) {
-      if (results.isEmpty) return;
-
-      for (var result in results) {
-        if (result.device.advName == deviceName) {
-          connectToDevice(result.device);
-          break;
-        }
-      }
-    }, onError: (e) => print('Error when scanning for devices: $e'));
   }
 
   void searchForBleDevices(bool clear) async {
@@ -126,10 +105,10 @@ class BleDeviceProvider extends ChangeNotifier {
       return;
     }
 
-    final service = services!.firstWhere((c) => c.uuid.toString() == BleWriter.serviceUuid);
+    final service = services!.firstWhere((c) => c.uuid.toString() == '');
     final characteristics = service.characteristics;
 
-    final charToWrite = characteristics.where((c) => c.characteristicUuid.toString() == BleWriter.volumeChar).firstOrNull;
+    final charToWrite = characteristics.where((c) => c.characteristicUuid.toString() == '').firstOrNull;
 
     if (charToWrite == null) {
       print('Characteristic not found');
@@ -146,8 +125,8 @@ class BleDeviceProvider extends ChangeNotifier {
       return;
     }
 
-    final service = services!.firstWhere((c) => c.uuid.toString() == BleWriter.serviceUuid);
-    final volumeChar = service.characteristics.where((c) => c.characteristicUuid.toString() == BleWriter.volumeChar).firstOrNull;
+    final service = services!.firstWhere((c) => c.uuid.toString() == '');
+    final volumeChar = service.characteristics.where((c) => c.characteristicUuid.toString() == '').firstOrNull;
 
     if (volumeChar == null) {
       print('Characteristic not found');

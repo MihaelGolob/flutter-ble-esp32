@@ -10,15 +10,16 @@ class BtBloc extends Bloc<BtEvent, BtState> {
   final BtRepository _btRepository;
 
   BtBloc(this._btRepository) : super(BtInitial()) {
-    on<BtInit>((event, emit) => _handleInitBt(event, emit));
     on<BtFindAndConnectToDevice>((event, emit) => _handleConnectToDevice(event, emit));
   }
 
-  void _handleInitBt(BtInit event, Emitter<BtState> emit) {
-    _btRepository.initBt();
-  }
-
-  void _handleConnectToDevice(BtFindAndConnectToDevice event, Emitter<BtState> emit) {
+  void _handleConnectToDevice(BtFindAndConnectToDevice event, Emitter<BtState> emit) async {
     emit(BtScanning());
+    try {
+      var device = await _btRepository.connectToDevice(event.deviceName);
+      emit(BtConnected(device: device));
+    } on Exception catch (e) {
+      emit(BtError(e.toString()));
+    }
   }
 }

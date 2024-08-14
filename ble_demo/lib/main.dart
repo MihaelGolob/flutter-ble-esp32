@@ -1,11 +1,14 @@
 import 'package:ble_demo/ble/bloc/bt_bloc.dart';
 import 'package:ble_demo/ble/data/bt_impl.dart';
 import 'package:ble_demo/ble/data/bt_repository.dart';
+import 'package:ble_demo/global/AppBlocObserver.dart';
 import 'package:ble_demo/pages/home_page.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter/material.dart';
 
 void main() {
+  Bloc.observer = AppBlocObserver();
+
   final BtRepository btRepository = BtImpl();
 
   runApp(MyApp(

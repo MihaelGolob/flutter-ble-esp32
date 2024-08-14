@@ -1,39 +1,31 @@
 import 'dart:io';
 
 import 'package:ble_demo/ble/data/bt_repository.dart';
+import 'package:ble_demo/ble/models/bt_device_model.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 
 class BtImpl implements BtRepository {
   BluetoothDevice? connectedDevice;
 
-  @override
-  void initBt() async {
-    if (!await _isBleSupported()) {
-      print('Bluetooth is not supported on this device');
-      throw BtExceptionNotSupported();
-    }
-
-    if (Platform.isAndroid) {
-      print('Automatically turning on Bluetooth');
-      await FlutterBluePlus.turnOn();
-    }
+  BtImpl() {
+    _initBt();
   }
 
   @override
-  void connectToDevice(String deviceName) async {
+  Future<BtDevice> connectToDevice(String deviceName) async {
     var onScanResults = FlutterBluePlus.onScanResults.listen((results) {
-      if (results.isEmpty) {
-        throw BtExceptionError('No devices found');
+      if (results.isEmpty || connectedDevice != null) {
+        return;
       }
 
       // if found, connect to the first device found
+      print('Found device: ${results.first.device.remoteId} - ${results.first.advertisementData.advName}');
       _connectToDevice(results.first.device);
     }, onError: (e) => throw BtExceptionError(e));
-
     FlutterBluePlus.cancelWhenScanComplete(onScanResults); // cleanup subscription
+
     // wait for bt to be enabled and permission granted
     await FlutterBluePlus.adapterState.where((val) => val == BluetoothAdapterState.on).first;
-
     await FlutterBluePlus.startScan(
       withNames: [deviceName],
       timeout: const Duration(seconds: 10),
@@ -44,6 +36,8 @@ class BtImpl implements BtRepository {
     if (connectedDevice == null) {
       throw BtExceptionTimeout();
     }
+
+    return BtDevice(id: connectedDevice!.remoteId.toString(), name: connectedDevice!.advName);
   }
 
   @override
@@ -54,6 +48,18 @@ class BtImpl implements BtRepository {
   }
 
   // P R I V A T E  M E T H O D S
+
+  void _initBt() async {
+    if (!await _isBleSupported()) {
+      print('Bluetooth is not supported on this device');
+      throw BtExceptionNotSupported();
+    }
+
+    if (Platform.isAndroid) {
+      print('Automatically turning on Bluetooth');
+      await FlutterBluePlus.turnOn();
+    }
+  }
 
   Future<bool> _isBleSupported() async {
     return await FlutterBluePlus.isSupported;
@@ -81,7 +87,7 @@ class BtImpl implements BtRepository {
       print('Connected to: ${device.advName}');
       connectedDevice = device;
     } else if (state == BluetoothConnectionState.disconnected) {
-      print('Disconnected from: ${device.advName}');
+      print('Disconnected');
       connectedDevice = null;
     }
   }

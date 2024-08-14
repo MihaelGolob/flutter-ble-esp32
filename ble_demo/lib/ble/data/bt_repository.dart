@@ -1,6 +1,7 @@
+import 'package:ble_demo/ble/models/bt_device_model.dart';
+
 abstract class BtRepository {
-  void initBt();
-  void connectToDevice(String deviceName);
+  Future<BtDevice> connectToDevice(String deviceName);
   void disconnectFromDevice();
 }
 
