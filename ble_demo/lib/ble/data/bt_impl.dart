@@ -8,6 +8,7 @@ import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 
 class BtImpl implements BtRepository {
   BluetoothDevice? connectedDevice;
+  Function? _onDisconnect;
 
   BtImpl() {
     _initBt();
@@ -70,6 +71,11 @@ class BtImpl implements BtRepository {
     await volumeChar.write([value]);
   }
 
+  @override
+  void onDisconnect(Function callback) {
+    _onDisconnect = callback;
+  }
+
   // P R I V A T E  M E T H O D S
 
   void _initBt() async {
@@ -112,6 +118,7 @@ class BtImpl implements BtRepository {
     } else if (state == BluetoothConnectionState.disconnected) {
       print('Disconnected');
       connectedDevice = null;
+      _onDisconnect?.call();
     }
   }
 }

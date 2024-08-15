@@ -12,6 +12,10 @@ class BtBloc extends Bloc<BtEvent, BtState> {
   BtBloc(this._btRepository) : super(BtInitial()) {
     on<BtFindAndConnectToDevice>((event, emit) => _handleConnectToDevice(event, emit));
     on<BtDisconnect>((event, emit) => _handleDisconnect(emit));
+
+    _btRepository.onDisconnect(() {
+      add(BtDisconnect());
+    });
   }
 
   void _handleConnectToDevice(BtFindAndConnectToDevice event, Emitter<BtState> emit) async {
@@ -19,8 +23,10 @@ class BtBloc extends Bloc<BtEvent, BtState> {
     try {
       var device = await _btRepository.connectToDevice(event.deviceName);
       emit(BtConnected(device: device));
+    } on BtExceptionTimeout {
+      emit(BtError('Device not found, please try again'));
     } on Exception catch (e) {
-      emit(BtError(e.toString()));
+      emit(BtError('Error connecting to device: $e'));
     }
   }
 

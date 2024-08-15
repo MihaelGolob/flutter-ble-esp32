@@ -3,6 +3,7 @@ import 'package:ble_demo/ble/models/bt_device_model.dart';
 abstract class BtRepository {
   Future<BtDevice> connectToDevice(String deviceName);
   void disconnectFromDevice();
+  void onDisconnect(Function callback);
   
   void setVolume(int value);
 }
