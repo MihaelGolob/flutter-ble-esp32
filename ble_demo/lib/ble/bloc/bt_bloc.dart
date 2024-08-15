@@ -11,6 +11,7 @@ class BtBloc extends Bloc<BtEvent, BtState> {
 
   BtBloc(this._btRepository) : super(BtInitial()) {
     on<BtFindAndConnectToDevice>((event, emit) => _handleConnectToDevice(event, emit));
+    on<BtDisconnect>((event, emit) => _handleDisconnect(emit));
   }
 
   void _handleConnectToDevice(BtFindAndConnectToDevice event, Emitter<BtState> emit) async {
@@ -23,7 +24,10 @@ class BtBloc extends Bloc<BtEvent, BtState> {
     }
   }
 
-  bool get isConnected => _btRepository.isConnected;
+  void _handleDisconnect(Emitter<BtState> emit) {
+    _btRepository.disconnectFromDevice();
+    emit(BtInitial());
+  }
 
   void setVolume(int value) {
     _btRepository.setVolume(value);

@@ -36,7 +36,11 @@ class _HomePageState extends State<HomePage> {
             builder: (context, state) {
               return Padding(
                 padding: const EdgeInsets.all(10),
-                child: Icon(Icons.circle, color: context.read<BtBloc>().isConnected ? Colors.green : Colors.red),
+                child: IconButton(
+                  icon: const Icon(Icons.circle),
+                  onPressed: () => context.read<BtBloc>().add(BtDisconnect()),
+                  color: state is BtConnected ? Colors.green : Colors.red,
+                ),
               );
             },
           ),

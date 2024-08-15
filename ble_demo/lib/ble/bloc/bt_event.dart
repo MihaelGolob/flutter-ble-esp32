@@ -7,3 +7,4 @@ final class BtFindAndConnectToDevice extends BtEvent {
 
   BtFindAndConnectToDevice({required this.deviceName});
 }
+final class BtDisconnect extends BtEvent {}

@@ -1,8 +1,6 @@
 import 'package:ble_demo/ble/models/bt_device_model.dart';
 
 abstract class BtRepository {
-  bool get isConnected;
-
   Future<BtDevice> connectToDevice(String deviceName);
   void disconnectFromDevice();
   

@@ -14,9 +14,6 @@ class BtImpl implements BtRepository {
   }
 
   @override
-  bool get isConnected => connectedDevice != null;
-
-  @override
   Future<BtDevice> connectToDevice(String deviceName) async {
     final connectionCompleter = Completer<void>();
 
