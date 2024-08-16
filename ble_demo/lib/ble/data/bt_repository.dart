@@ -6,6 +6,7 @@ abstract class BtRepository {
   void onDisconnect(Function callback);
   
   void setVolume(int value);
+  int getVolume();
 }
 
 // exceptions

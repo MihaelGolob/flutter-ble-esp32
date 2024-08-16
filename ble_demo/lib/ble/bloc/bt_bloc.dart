@@ -38,4 +38,8 @@ class BtBloc extends Bloc<BtEvent, BtState> {
   void setVolume(int value) {
     _btRepository.setVolume(value);
   }
+
+  int getVolume() {
+    return _btRepository.getVolume();
+  }
 }

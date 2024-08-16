@@ -10,6 +10,9 @@ class BtImpl implements BtRepository {
   BluetoothDevice? connectedDevice;
   Function? _onDisconnect;
 
+  // TODO: move this data somewhere else
+  int volume = 0;
+
   BtImpl() {
     _initBt();
   }
@@ -63,12 +66,18 @@ class BtImpl implements BtRepository {
       print('Cannot set volume, no device connected');
     }
 
-    // todo: rework
+    // TODO: rework
     final services = await connectedDevice!.discoverServices();
     final algService = services.firstWhere((service) => service.uuid.toString() == BtConstants.serviceUuid);
     final volumeChar = algService.characteristics.firstWhere((char) => char.uuid.toString() == BtConstants.volumeChar);
 
+    volume = value;
     await volumeChar.write([value]);
+  }
+
+  @override
+  int getVolume() {
+    return volume;
   }
 
   @override
@@ -109,6 +118,7 @@ class BtImpl implements BtRepository {
     device.cancelWhenDisconnected(onConnection, delayed: true, next: true);
 
     await device.connect();
+    await readInitialValues();
   }
 
   void _onConnectionChanged(BluetoothConnectionState state, BluetoothDevice device) {
@@ -120,5 +130,18 @@ class BtImpl implements BtRepository {
       connectedDevice = null;
       _onDisconnect?.call();
     }
+  }
+
+  Future<void> readInitialValues() async {
+    if (connectedDevice == null) {
+      print('Cannot read values, no device connected');
+    }
+
+    // TODO: rework
+    final services = await connectedDevice!.discoverServices();
+    final algService = services.firstWhere((service) => service.uuid.toString() == BtConstants.serviceUuid);
+    final volumeChar = algService.characteristics.firstWhere((char) => char.uuid.toString() == BtConstants.volumeChar);
+
+    volume = await volumeChar.read().then((value) => value.first);
   }
 }

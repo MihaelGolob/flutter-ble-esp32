@@ -15,6 +15,12 @@ class _AlgSliderState extends State<AlgSlider> {
   int _value = 0;
 
   @override
+  void initState() {
+    super.initState();
+    _value = widget.startValue;
+  }
+
+  @override
   Widget build(BuildContext context) {
     return SliderTheme(
       data: const SliderThemeData(

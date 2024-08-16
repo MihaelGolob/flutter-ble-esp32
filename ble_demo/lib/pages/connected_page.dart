@@ -18,6 +18,7 @@ class ConnectedPage extends StatelessWidget {
             onChanged: (value) {
               context.read<BtBloc>().setVolume(value);
             },
+            startValue: context.read<BtBloc>().getVolume(),
           ),
         ],
       ),
