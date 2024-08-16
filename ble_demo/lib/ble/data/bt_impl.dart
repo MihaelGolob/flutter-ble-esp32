@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:collection';
 import 'dart:io';
 
 import 'package:ble_demo/ble/data/bt_repository.dart';
@@ -9,6 +10,8 @@ import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 class BtImpl implements BtRepository {
   BluetoothDevice? connectedDevice;
   Function? _onDisconnect;
+  final HashMap<BtCharacteristic, BluetoothCharacteristic> _characteristics = HashMap();
+  final HashMap<BtService, BluetoothService> _services = HashMap();
 
   // TODO: move this data somewhere else
   int volume = 0;
@@ -66,10 +69,7 @@ class BtImpl implements BtRepository {
       print('Cannot set volume, no device connected');
     }
 
-    // TODO: rework
-    final services = await connectedDevice!.discoverServices();
-    final algService = services.firstWhere((service) => service.uuid.toString() == BtConstants.serviceUuid);
-    final volumeChar = algService.characteristics.firstWhere((char) => char.uuid.toString() == BtConstants.volumeChar);
+    final volumeChar = await _findCharacteristic(BtConstants.volumeChar);
 
     volume = value;
     await volumeChar.write([value]);
@@ -118,7 +118,7 @@ class BtImpl implements BtRepository {
     device.cancelWhenDisconnected(onConnection, delayed: true, next: true);
 
     await device.connect();
-    await readInitialValues();
+    await _readInitialValues();
   }
 
   void _onConnectionChanged(BluetoothConnectionState state, BluetoothDevice device) {
@@ -132,16 +132,33 @@ class BtImpl implements BtRepository {
     }
   }
 
-  Future<void> readInitialValues() async {
+  Future<void> _readInitialValues() async {
     if (connectedDevice == null) {
       print('Cannot read values, no device connected');
     }
 
-    // TODO: rework
-    final services = await connectedDevice!.discoverServices();
-    final algService = services.firstWhere((service) => service.uuid.toString() == BtConstants.serviceUuid);
-    final volumeChar = algService.characteristics.firstWhere((char) => char.uuid.toString() == BtConstants.volumeChar);
-
+    final volumeChar = await _findCharacteristic(BtConstants.volumeChar);
     volume = await volumeChar.read().then((value) => value.first);
+  }
+
+  Future<BluetoothCharacteristic> _findCharacteristic(BtCharacteristic characteristic) async {
+    if (_characteristics.containsKey(characteristic)) {
+      return _characteristics[characteristic]!;
+    }
+
+    final parentService = await _findService(characteristic.parentService);
+    final char = parentService.characteristics.firstWhere((char) => char.uuid.toString() == characteristic.uuid);
+
+    _characteristics[characteristic] = char;
+    return char;
+  }
+
+  Future<BluetoothService> _findService(BtService service) async {
+    if (_services.containsKey(service)) {
+      return _services[service]!;
+    }
+
+    final services = await connectedDevice!.discoverServices();
+    return services.firstWhere((s) => s.uuid.toString() == service.uuid);
   }
 }
